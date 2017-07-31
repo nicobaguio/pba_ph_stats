@@ -366,6 +366,44 @@ def transform_df(df):
     return df
 
 
+def clean_df(tournament_id, game_type=0):
+    """
+    clean dataframe of a specific tournament id and game type
+
+    Args:
+        tournament_id (int): tournament id
+        game_type (int): game_type.
+                         0 is elimination game, 1 is playoff game.
+                         Defaults to 0
+
+    Returns:
+        df with new columns
+
+    """
+    games_list = games.loc[
+        (games.tournament_id == 27) & (games.game_type == 0)].id.tolist()
+
+    df_list = [game_events.loc[
+        game_events.game_id == game_id
+    ].reset_index(drop=True) for game_id in games_list]
+
+    errors = {}
+
+    df_clean_list = []
+
+    for df in df_list:
+        copy_df, error = calculate_lineup(df)
+        copy_df = transform_df(copy_df)
+        g_id = df.game_id.unique()[0]
+        df_clean_list.append(copy_df)
+        if len(error) > 0:
+            errors[g_id] = error
+
+    clean_df = pd.concat(comm2017_df_clean_list)
+
+    return clean_df
+
+
 if not os.path.isfile('hb_db.h5'):
     with pd.HDFStore('hb_db.h5') as hdf:
         tables = [
