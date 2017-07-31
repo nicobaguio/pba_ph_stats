@@ -27,10 +27,13 @@ errors = {}
 comm2017_df_clean_list = []
 for df in comm2017_df_list:
     copy_df, error = calculate_lineup(df)
+    copy_df = transform_df(copy_df)
     g_id = df.game_id.unique()[0]
     comm2017_df_clean_list.append(copy_df)
     if len(error) > 0:
         errors[g_id] = error
 
-del copy_df, error
-comm2017_df_clean = pd.concat(comm2017_df_clean_list)
+clean_df = pd.concat(comm2017_df_clean_list)
+
+del copy_df, error, comm2017_df_clean_list
+
