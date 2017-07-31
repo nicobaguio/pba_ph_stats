@@ -1,5 +1,6 @@
 from sqlalchemy import *
 import pandas as pd
+import numpy as np
 import copy
 import os.path
 
@@ -287,7 +288,7 @@ def calculate_lineup(df):
 
     keys_to_remove.sort()
     # print(keys_to_remove)
-    print(len(copy_df), len(t1_lineup), len(t2_lineup))
+    # print(len(copy_df), len(t1_lineup), len(t2_lineup))
     # print(errors)
     # error_dict[game_id] = errors
     # return copy_df, t1_lineup, t2_lineup, errors
@@ -399,7 +400,7 @@ def clean_df(tournament_id, game_type=0):
         if len(error) > 0:
             errors[g_id] = error
 
-    clean_df = pd.concat(comm2017_df_clean_list)
+    clean_df = pd.concat(df_clean_list)
 
     return clean_df
 
