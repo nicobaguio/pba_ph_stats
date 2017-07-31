@@ -2,9 +2,7 @@ from base_pba import *
 
 
 comm2017 = games.loc[
-            (games.tournament_id == 27) &
-            (games.game_type == 0)
-].id.tolist()
+    (games.tournament_id == 27) & (games.game_type == 0)].id.tolist()
 
 # for game_id in comm2017:
 #     print(game_id)
@@ -36,4 +34,3 @@ for df in comm2017_df_list:
 clean_df = pd.concat(comm2017_df_clean_list)
 
 del copy_df, error, comm2017_df_clean_list
-
