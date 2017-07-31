@@ -5,6 +5,12 @@ import os.path
 
 
 def connect_hb():
+    """
+    Connects to HumbleBola database
+
+    Returns:
+        Engine objec of HumbleBola database
+    """
     dbname = 'humblebola_stats_production'
     host = 'stats.humblebola.com'
     port = 5432
@@ -20,6 +26,15 @@ def connect_hb():
 
 
 def download(table):
+    """
+    Downloads a table from the HumbleBola database
+
+    Args:
+        table (str): table to download from HumbleBola database
+
+    Returns:
+        Pandas dataframe of table from HumbleBola database
+    """
     engine = connect_hb()
 
     temp_table = pd.read_sql_table(table_name=table, con=engine)
@@ -88,6 +103,18 @@ def download(table):
 
 
 def get_tournament(game_id, league_id, schedule):
+    """
+    Gets the tournament id from the tournaments dataframe
+
+    Args:
+        game_id (int): game id
+        league_id (int): league id
+        schedule (date, time): date and time of game
+    Returns:
+        tournament_id (int): tournament id from given arguments
+    Raises:
+        IndexError: if the game is not under a tournament
+    """
     global tournaments
     league_bool = tournaments.league_id == league_id
     start_date_bool = tournaments.start_date <= schedule.to_pydatetime().date()
@@ -115,15 +142,15 @@ def calculate_lineup(df):
     Creates a new column for lineup data on a pbp dataframe given game number
 
     Args:
-        df: game_events df
+        df (pd.DataFrame): game_events df
 
     Returns:
         A tuple of the transformed data frame and the errors
 
     Raises:
-        Value Error: if player is not in lineup when sub out
+        ValueError: if player is not in lineup when sub out
 
-        Assertion Error: when sub in puts more than 5 players on court
+        AssertionError: when sub in puts more than 5 players on court
     """
     copy_df = copy.deepcopy(df)
     # game_id = df.game_id.unique()[0]
@@ -268,6 +295,15 @@ def calculate_lineup(df):
 
 
 def transform_df(df):
+    """
+    Adds updated_x, updated_y, distance, angle, and shot_class into dataframe
+
+    Args:
+        df (pd.DataFrame): dataframe to transform
+
+    Returns:
+        df (pd.DataFrame): dataframe with added columns
+    """
     df.loc[:, 'time_elapsed'] = [
         x * -1 if x < 0 else 0.0 for x in df.secs_remaining.diff()]
 
