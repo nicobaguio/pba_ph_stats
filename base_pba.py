@@ -115,7 +115,7 @@ def calculate_lineup(df):
     Creates a new column for lineup data on a pbp dataframe given game number
 
     Args:
-        game_id: the game id of the df to be transformed
+        df: game_events df
 
     Returns:
         A tuple of the transformed data frame and the errors
@@ -126,10 +126,12 @@ def calculate_lineup(df):
         Assertion Error: when sub in puts more than 5 players on court
     """
     copy_df = copy.deepcopy(df)
+    game_id = df.game_id.unique()[0]
     t1_lineup = []
     t2_lineup = []
     t1_id = 0
     t2_id = 0
+    error_dict = {}
     errors = []
     keys_to_remove = []
 
@@ -260,8 +262,9 @@ def calculate_lineup(df):
     # print(keys_to_remove)
     print(len(copy_df), len(t1_lineup), len(t2_lineup))
     print(errors)
+    error_dict[game_id] = errors
     # return copy_df, t1_lineup, t2_lineup, errors
-    return copy_df, errors
+    return copy_df, error_dict
 
 
 if not os.path.isfile('hb_db.h5'):
