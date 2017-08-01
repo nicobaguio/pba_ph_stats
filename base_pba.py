@@ -138,6 +138,79 @@ def get_tournament(game_id, league_id, schedule):
     return tournament_id
 
 
+def transform_df(df):
+    """
+    Adds updated_x, updated_y, distance, angle, and shot_class into dataframe
+
+    Args:
+        df (pd.DataFrame): dataframe to transform
+
+    Returns:
+        df (pd.DataFrame): dataframe with added columns
+    """
+    df.loc[:, 'time_elapsed'] = [
+        x * -1 if x < 0 else 0.0 for x in df.secs_remaining.diff()]
+
+    x = df.x
+    y = df.y
+
+    distance = np.sqrt((x - 75) ** 2 + (y - 15.75) ** 2)
+
+    pre_angle = (75 - x) / (15.75 - y)
+    angle = np.arctan(pre_angle) * [
+        1.0 if value < 15.75 else -1.0 for value in y
+    ]
+
+    # y_trans = [1.0 if value < 15.75 else -1.0 for value in y]
+    # angle = angle * y_trans
+
+    update_bool = (df.action_type == '3pt') & (distance < 68)
+
+    update_x = np.array([
+        68 * np.sin(a) + 75 if b
+        else x for a, b, x in zip(angle, update_bool, x)
+    ])
+
+    update_y = np.array([
+        68 * np.cos(a) + 15.75 if b
+        else y for a, b, y in zip(angle, update_bool, y)
+    ])
+
+    update_distance = np.sqrt((update_x - 75) ** 2 + (update_y - 15.75) ** 2)
+
+    pre_update_angle = (75 - update_x) / (15.75 - update_y)
+
+    update_angle = np.arctan(pre_update_angle) * [
+        1.0 if value < 15.75 else -1.0 for value in update_y
+    ]
+
+    shot_class = []
+
+    for a, d, y in zip(df.action_type.tolist(), update_distance, update_y):
+        if 12 >= d >= 0:
+            shot_class.append('RA')
+        elif 45 >= d > 12:
+            shot_class.append('4-15 ft')
+        elif d > 100:
+            shot_class.append('heave')
+        elif 68 >= d and d > 45 and a == '2pt':
+            shot_class.append('15-22 ft 2pt')
+        elif a == '3pt' and y <= 30:
+            shot_class.append('corner 3')
+        elif a == '3pt' and y > 30 and d <= 100:
+            shot_class.append('above break 3')
+        else:
+            shot_class.append('None')
+
+    df.loc[:, 'update_x'] = update_x
+    df.loc[:, 'update_y'] = update_y
+    df.loc[:, 'distance'] = distance
+    df.loc[:, 'angle'] = update_angle
+    df.loc[:, 'shot_class'] = shot_class
+
+    return df
+
+
 def calculate_lineup(df):
     """
     Creates a new column for lineup data on a pbp dataframe given game number
@@ -277,6 +350,14 @@ def calculate_lineup(df):
 
         # print(f'{key} = {value}: {t1_temp} = {t2_temp}')
         # print(f'{hex_1} : {hex_2}')
+
+        try:
+            if len(t1_temp) < 5 or len(t2_temp) < 5:
+                assert value.time_elapsed == 0
+        except AssertionError:
+            error = f'{key}: lineups with less than 4 players'
+            errors.append(error)
+
         t1_lineup.append(t1_temp[:])
         t2_lineup.append(t2_temp[:])
 
@@ -293,78 +374,6 @@ def calculate_lineup(df):
     # error_dict[game_id] = errors
     # return copy_df, t1_lineup, t2_lineup, errors
     return copy_df, errors
-
-
-def transform_df(df):
-    """
-    Adds updated_x, updated_y, distance, angle, and shot_class into dataframe
-
-    Args:
-        df (pd.DataFrame): dataframe to transform
-
-    Returns:
-        df (pd.DataFrame): dataframe with added columns
-    """
-    df.loc[:, 'time_elapsed'] = [
-        x * -1 if x < 0 else 0.0 for x in df.secs_remaining.diff()]
-
-    x = df.x
-    y = df.y
-
-    distance = np.sqrt((x - 75) ** 2 + (y - 15.75) ** 2)
-
-    pre_angle = (75 - x) / (15.75 - y)
-    angle = np.arctan(pre_angle) * [
-        1.0 if value < 15.75 else -1.0 for value in y
-    ]
-
-    # y_trans = [1.0 if value < 15.75 else -1.0 for value in y]
-    # angle = angle * y_trans
-
-    update_bool = (df.action_type == '3pt') & (distance < 68)
-
-    update_x = np.array([
-        68 * np.sin(a) + 75 if b
-        else x for a, b, x in zip(angle, update_bool, x)
-    ])
-
-    update_y = np.array([
-        68 * np.cos(a) + 15.75 if b
-        else y for a, b, y in zip(angle, update_bool, y)
-    ])
-
-    update_distance = np.sqrt((update_x - 75) ** 2 + (update_y - 15.75) ** 2)
-
-    pre_update_angle = (75 - update_x) / (15.75 - update_y)
-
-    update_angle = np.arctan(pre_update_angle) * [
-        1.0 if value < 15.75 else -1.0 for value in update_y
-    ]
-
-    shot_class = []
-    for a, d, y in zip(update_angle, update_distance, update_y):
-        if 12 >= d >= 0:
-            shot_class.append('RA')
-        elif 45 >= d > 12:
-            shot_class.append('4-15 ft')
-        elif d > 100:
-            shot_class.append('heave')
-        elif 68 >= d > 45 and a == '3pt':
-            shot_class.append('15-22 ft 2pt')
-        elif a == '3pt' and y <= 30:
-            shot_class.append('corner 3')
-        elif a == '3pt' and y > 30 and d <= 100:
-            shot_class.append('above break 3')
-        else:
-            shot_class.append(None)
-
-    df.loc[:, 'update_x'] = update_x
-    df.loc[:, 'update_y'] = update_y
-    df.loc[:, 'distance'] = distance
-    df.loc[:, 'angle'] = update_angle
-    df.loc[:, 'shot_class'] = shot_class
-
-    return df
 
 
 def clean_df(tournament_id, game_type=0):
