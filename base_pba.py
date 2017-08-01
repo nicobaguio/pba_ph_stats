@@ -148,8 +148,28 @@ def transform_df(df):
     Returns:
         df (pd.DataFrame): dataframe with added columns
     """
-    df.loc[:, 'time_elapsed'] = [
-        x * -1 if x < 0 else 0.0 for x in df.secs_remaining.diff()]
+
+    diff_list = []
+    df = df.reset_index(drop=True)
+    for key, value in enumerate(df.itertuples()):
+        # print(key)
+        try:
+            if key == 0 or value.action_type == 'substitution':
+                diff = 0
+            elif df.action_type[key+1] == 'substitution' and df.action_subtype[key+1] == 'out':
+                diff = df.secs_remaining[key - 1] - df.secs_remaining[key + 1]
+            else:
+                diff = df.secs_remaining[key - 1] - df.secs_remaining[key]
+
+        except KeyError:
+            diff = df.secs_remaining[key - 1] - df.secs_remaining[key]
+
+        finally:
+            diff = max(diff,0)
+
+        diff_list.append(diff)
+
+    df.loc[:, 'time_elapsed'] = diff_list
 
     x = df.x
     y = df.y
