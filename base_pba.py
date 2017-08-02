@@ -156,9 +156,11 @@ def transform_df(df):
         try:
             if key == 0:
                 diff = 0
-            elif df.action_type[key] == 'substitution' and df.action_subtype[key] == 'out':
+            elif df.action_type[key] == 'substitution' and \
+                    df.action_subtype[key] == 'out':
                 diff = 0
-            elif df.action_type[key+1] == 'substitution' and df.action_subtype[key+1] == 'out':
+            elif df.action_type[key + 1] == 'substitution' and \
+                    df.action_subtype[key + 1] == 'out':
                 diff = df.secs_remaining[key - 1] - df.secs_remaining[key + 1]
             else:
                 diff = df.secs_remaining[key - 1] - df.secs_remaining[key]
@@ -167,7 +169,7 @@ def transform_df(df):
             diff = df.secs_remaining[key - 1] - df.secs_remaining[key]
 
         finally:
-            diff = max(diff,0)
+            diff = max(diff, 0)
 
         diff_list.append(diff)
 
