@@ -422,8 +422,8 @@ def clean_df(tournament_id, game_type=0):
     df_clean_list = []
 
     for df in df_list:
+        df = transform_df(df)
         copy_df, error = calculate_lineup(df)
-        copy_df = transform_df(copy_df)
         g_id = df.game_id.unique()[0]
         df_clean_list.append(copy_df)
         if len(error) > 0:
@@ -431,7 +431,7 @@ def clean_df(tournament_id, game_type=0):
 
     clean_df = pd.concat(df_clean_list)
 
-    return clean_df
+    return clean_df, errors
 
 
 if not os.path.isfile('hb_db.h5'):
@@ -469,3 +469,4 @@ games['tournament_id'] = games.apply(
 
 pd.set_option('display.max_rows', None)
 pd.set_option('display.expand_frame_repr', False)
+
