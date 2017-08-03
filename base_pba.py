@@ -504,27 +504,34 @@ def clean_df(tournament_id, game_type=0):
 
     """
     games_list = games.loc[
-        (games.tournament_id == 27) & (games.game_type == 0)].id.tolist()
+        (games.tournament_id == tournament_id) &
+        (games.game_type == 0)].id.tolist()
 
     df_list = [game_events.loc[
         game_events.game_id == game_id
     ].reset_index(drop=True) for game_id in games_list]
 
     errors = {}
-
+    error_counts = {}
+    error_counts['duplicates'] = 0
+    error_counts['errors'] = 0
     df_clean_list = []
 
     for df in df_list:
         df = transform_df(df)
-        copy_df, error = calculate_lineup(df)
+        copy_df, error, error_count = calculate_lineup(df)
         g_id = df.game_id.unique()[0]
         df_clean_list.append(copy_df)
+
         if len(error) > 0:
             errors[g_id] = error
 
+        if error_count['duplicates'] > 0 or error_count['errors'] > 0:
+            error_counts['duplicates'] += error_count['duplicates']
+            error_counts['errors'] += error_count['errors']
     clean_df = pd.concat(df_clean_list)
 
-    return clean_df, errors
+    return clean_df, errors, error_counts
 
 
 if not os.path.isfile('hb_db.h5'):
