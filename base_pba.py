@@ -150,27 +150,31 @@ def transform_df(df):
     """
 
     diff_list = []
-    df = df.reset_index(drop=True)
-    for key, value in enumerate(df.itertuples()):
-        # print(key)
+    # df = df.reset_index(drop=True)
+    for value in df.itertuples():
+        # # print(key)
         try:
-            if key == 0:
+            if value.action_type == 'game' and value.action_subtype == 'start':
                 diff = 0
-            elif df.action_type[key] == 'substitution' and \
-                    df.action_subtype[key] == 'out':
+            elif value.action_type == 'substitution' and \
+                    value.action_subtype == 'out':
                 diff = 0
-            elif df.action_type[key + 1] == 'substitution' and \
-                    df.action_subtype[key + 1] == 'out':
-                diff = df.secs_remaining[key - 1] - df.secs_remaining[key + 1]
+            elif df.action_type[
+                df.index[sum(df.index < value.Index)+1]] == 'substitution' and \
+                    df.action_subtype[df.index[sum(df.index < value.Index)+1]] == 'out':
+                    diff = df.secs_remaining[df.index[sum(df.index < value.Index)-1]]\
+                        - df.secs_remaining[df.index[sum(df.index < value.Index)+1]]
             else:
-                diff = df.secs_remaining[key - 1] - df.secs_remaining[key]
+                diff = df.secs_remaining[df.index[sum(df.index < value.Index)-1]]\
+                        - df.secs_remaining[df.index[sum(df.index < value.Index)]]
 
-        except KeyError:
-            diff = df.secs_remaining[key - 1] - df.secs_remaining[key]
+        except IndexError:
+                diff = df.secs_remaining[df.index[sum(df.index < value.Index)-1]]\
+                        - df.secs_remaining[df.index[sum(df.index < value.Index)]]
+
 
         finally:
             diff = max(diff, 0)
-
         diff_list.append(diff)
 
     df.loc[:, 'time_elapsed'] = diff_list
