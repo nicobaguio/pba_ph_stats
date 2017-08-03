@@ -239,7 +239,7 @@ def transform_df(df):
     return df
 
 
-def calculate_lineup(df):
+def calculate_lineup(df, debug=False):
     """
     Creates a new column for lineup data on a pbp dataframe given game number
 
@@ -260,134 +260,220 @@ def calculate_lineup(df):
     t2_lineup = []
     t1_id = 0
     t2_id = 0
-    # error_dict = {}
     errors = []
-    keys_to_remove = []
+    indices_to_remove = []
+    duplicate_count = 0
+    error_count = 0
+    error_counts = {}
 
-    for key, value in enumerate(df.itertuples()):
+    for value in df.itertuples():
         error = None
-
+        d_error = None
+        # If Game Start, set parameters
         if value.action_type == 'game' and value.action_subtype == 'start':
-            # print(f'{key}: game start!')
-            t1_id = df.iloc[key + 1, 2]
-            t2_id = df.iloc[key + 1, 3]
-            # message = f'{key}: Game Start'
+            t1_id = df.iloc[value.Index + 1]['team_id']
+            t2_id = df.iloc[value.Index + 1]['opp_team_id']
             t1_temp = []
             t2_temp = []
-
-        # print(f'{message} => {t1_temp} : {t2_temp}')
+            t1_error_temp = []
+            t2_error_temp = []
 
         if value.action_type == 'substitution':
             if value.action_subtype == 'in':
-                if key in keys_to_remove:
+                if value.Index in indices_to_remove:
                     continue
                 else:
                     if value.team_id == t1_id:
                         try:
-                            # message = f'{key}: sub in by team {t1_id}'
                             t1_temp.append(int(value.player_id))
                             t1_temp.sort()
                             assert len(t1_temp) <= 5
                         except AssertionError:
-                            error = f'{key}: Sub in of {value.player_id} ' \
+                            error = f'{value.Index} (Q{value.period}:' \
+                                    f'{value.secs_remaining}) > ' \
+                                    f'Sub in  of {value.player_id} ' \
                                     f'puts team {t1_id} at ' \
                                     'more than 5 players on court.'
-                            # print(error)
-                            errors.append(error)
 
-                            continue
+                            errors.append(error)
+                            t1_error_temp.append(int(value.player_id))
+                            t1_error_temp.sort()
+                            error_count += 1
+
+                            pass
 
                     else:
                         try:
-                            # message = f'{key}: sub in by team {t2_id}'
                             t2_temp.append(int(value.player_id))
                             t2_temp.sort()
                             assert len(t2_temp) <= 5
                         except AssertionError:
-                            error = f'{key}: Sub in of {value.player_id} ' \
+                            error = f'{value.Index} (Q{value.period}:' \
+                                    f'{value.secs_remaining}) > ' \
+                                    f'Sub in  of {value.player_id} ' \
                                     f'puts team {t2_id} at ' \
                                     'more than 5 players on court.'
-                            # print(error)
-                            errors.append(error)
 
-                            continue
+                            errors.append(error)
+                            t2_error_temp.append(int(value.player_id))
+                            t2_error_temp.sort()
+                            error_count += 1
+
+                            pass
 
             elif value.action_subtype == 'out':
                 if value.team_id == t1_id:
                     try:
-                        # message = f'{key}: sub out by team {t1_id}'
                         t1_temp.remove(value.player_id)
+                        assert len(t1_temp) < 5
+
+                    #player is not in the lineup
                     except ValueError:
-                        key_to_remove = df.index[
-                            (df.game_id == value.game_id) &
-                            (df.team_id == value.team_id) &
-                            (df.player_id == value.player_id) &
-                            (df.period == value.period) &
-                            (df.secs_remaining == value.secs_remaining) &
-                            (df.action_type == 'substitution') &
-                            (df.action_subtype == 'in')][0]
+                        try:
+                            index_to_remove = df.index[
+                                (df.game_id == value.game_id) &
+                                (df.team_id == value.team_id) &
+                                (df.player_id == value.player_id) &
+                                (df.period == value.period) &
+                                (df.secs_remaining == value.secs_remaining) &
+                                (df.action_type == 'substitution') &
+                                (df.action_subtype == 'in')][0]
 
-                        error = f'{key} & {key_to_remove}: ' \
-                                f'player {value.player_id}, ' \
-                                f'from {t1_id}, ' \
-                                'is not on list.'
+                            error = f'{value.Index} (Q{value.period}:' \
+                                    f'{value.secs_remaining}) > '\
+                                    f'Sub out of {value.player_id} ' \
+                                    f'from team {t1_id} not allowed. '\
+                                    'player not on list. Error removed.'
 
-                        keys_to_remove.append(key_to_remove)
-                        keys_to_remove.append(key)
+                            d_error = f'{index_to_remove} (Q{value.period}:' \
+                                      f'{value.secs_remaining}) > '\
+                                      f'Sub in  of {value.player_id} ' \
+                                      f'from team {t1_id} is a duplicate. '\
+                                      'Error removed.'
+
+                            indices_to_remove.append(index_to_remove)
+                            indices_to_remove.append(value.Index)
+                            copy_df.drop(index_to_remove, inplace=True)
+                            copy_df.drop(value.Index, inplace=True)
+                            errors.append(error)
+                            errors.append(d_error)
+                            duplicate_count += 1
+
+                            continue
+
+                        #error sub out has no duplicate sub in
+                        except IndexError:
+                            error = f'{value.Index} (Q{value.period}:' \
+                                    f'{value.secs_remaining}) > ' \
+                                    f'player {value.player_id}, ' \
+                                    f'from {t1_id}, ' \
+                                    'is not on list and has no duplicate. ' \
+                                    'Error removed.'
+
+                            copy_df.drop(value.Index, inplace=True)
+                            errors.append(error)
+                            error_count += 1
+
+                            continue
+
+                    except AssertionError:
+                        error = f'{value.Index} (Q{value.period}:'\
+                                f'{value.secs_remaining}) > '\
+                                f'Sub out of {value.player_id} ' \
+                                f'puts team {t1_id} at ' \
+                                'more than 5 players on court.'
 
                         errors.append(error)
-
-                        copy_df.drop(key_to_remove, inplace=True)
-
-                        copy_df.drop(df.index[key], inplace=True)
-                        continue
+                        t1_error_temp.append(int(value.player_id))
+                        t1_error_temp.sort()
+                        error_count += 1
 
                 else:
                     try:
-                        # message = f'{key}: sub out by team {t2_id}'
                         t2_temp.remove(value.player_id)
+                        assert len(t2_temp) < 5
+
+                    #player is not in the lineup
                     except ValueError:
-                        key_to_remove = df.index[
-                            (df.game_id == value.game_id) &
-                            (df.team_id == value.team_id) &
-                            (df.player_id == value.player_id) &
-                            (df.period == value.period) &
-                            (df.secs_remaining == value.secs_remaining) &
-                            (df.action_type == 'substitution') &
-                            (df.action_subtype == 'in')][0]
+                        try:
+                            index_to_remove = df.index[
+                                (df.game_id == value.game_id) &
+                                (df.team_id == value.team_id) &
+                                (df.player_id == value.player_id) &
+                                (df.period == value.period) &
+                                (df.secs_remaining == value.secs_remaining) &
+                                (df.action_type == 'substitution') &
+                                (df.action_subtype == 'in')][0]
 
-                        error = f'{key} & {key_to_remove}: ' \
-                                f'player {value.player_id}, ' \
-                                f'from {t2_id}, ' \
-                                'is not on list.'
+                            error = f'{value.Index} (Q{value.period}:' \
+                                    f'{value.secs_remaining}) > '\
+                                    f'Sub out of {value.player_id} ' \
+                                    f'from team {t2_id} not allowed. '\
+                                    'player not on list. Error removed.'
 
-                        keys_to_remove.append(key_to_remove)
-                        keys_to_remove.append(key)
+                            d_error = f'{index_to_remove} (Q{value.period}:' \
+                                      f'{value.secs_remaining}) > '\
+                                      f'Sub in  of {value.player_id} ' \
+                                      f'from team {t2_id} is a duplicate. '\
+                                      'Error removed.'
+
+                            indices_to_remove.append(index_to_remove)
+                            indices_to_remove.append(value.Index)
+                            copy_df.drop(index_to_remove, inplace=True)
+                            copy_df.drop(value.Index, inplace=True)
+                            errors.append(error)
+                            errors.append(d_error)
+                            duplicate_count += 1
+
+                            continue
+
+                        #error sub out has no duplicate sub in
+                        except IndexError:
+                            error = f'{value.Index} (Q{value.period}:' \
+                                    f'{value.secs_remaining}) > ' \
+                                    f'player {value.player_id}, ' \
+                                    f'from {t2_id}, ' \
+                                    'is not on list and has no duplicate. ' \
+                                    'Error removed.'
+
+                            copy_df.drop(value.Index, inplace=True)
+                            errors.append(error)
+                            error_count += 1
+
+                            continue
+
+                    except AssertionError:
+                        error = f'{value.Index} (Q{value.period}:'\
+                                f'{value.secs_remaining}) > '\
+                                f'Sub out of {value.player_id} ' \
+                                f'puts team {t2_id} at ' \
+                                'more than 5 players on court.'
 
                         errors.append(error)
+                        t2_error_temp.append(int(value.player_id))
+                        t2_error_temp.sort()
+                        error_count += 1
 
-                        copy_df.drop(key_to_remove, inplace=True)
-
-                        copy_df.drop(df.index[key], inplace=True)
-                        continue
 
         else:
             pass
-            # message = f'{key}: No sub'
-            # print(messages)
-
-        # print(f'{key} = {value}: {t1_temp} = {t2_temp}')
-        # print(f'{hex_1} : {hex_2}')
 
         try:
             if len(t1_temp) < 5 or len(t2_temp) < 5:
                 assert value.time_elapsed == 0
         except AssertionError:
-            error = f'{key}: lineups with less than 4 players'
+            error = f'{value.Index} (Q{value.period}:{value.secs_remaining}) > '\
+            'lineups with less than 4 players and have time elapsed.'
             errors.append(error)
+            error_count += 1
 
         t1_lineup.append(t1_temp[:])
         t2_lineup.append(t2_temp[:])
+
+        if debug:
+            print(f'{value.Index} (Q{value.period}:{value.secs_remaining})'
+                  f' > {t1_temp} <> {t2_temp} : {t1_error_temp} <>'
+                  f' {t2_error_temp} > {error}')
 
     if len(copy_df) == len(t1_lineup):
         copy_df.loc[:, 't1_lineup'] = t1_lineup
@@ -395,13 +481,12 @@ def calculate_lineup(df):
     if len(copy_df) == len(t2_lineup):
         copy_df.loc[:, 't2_lineup'] = t2_lineup
 
-    keys_to_remove.sort()
-    # print(keys_to_remove)
-    # print(len(copy_df), len(t1_lineup), len(t2_lineup))
-    # print(errors)
-    # error_dict[game_id] = errors
-    # return copy_df, t1_lineup, t2_lineup, errors
-    return copy_df, errors
+    indices_to_remove.sort()
+
+    error_counts['duplicates'] = duplicate_count
+    error_counts['errors'] = error_count
+
+    return copy_df, errors, error_counts
 
 
 def clean_df(tournament_id, game_type=0):
