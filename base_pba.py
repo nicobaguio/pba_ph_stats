@@ -489,7 +489,7 @@ def calculate_lineup(df, debug=False):
     return copy_df, errors, error_counts
 
 
-def clean_df(tournament_id, game_type=0):
+def clean_df(tournament_id, game_type=0, deletions=None):
     """
     clean dataframe of a specific tournament id and game type
 
@@ -511,13 +511,32 @@ def clean_df(tournament_id, game_type=0):
         game_events.game_id == game_id
     ].reset_index(drop=True) for game_id in games_list]
 
+    to_delete = None
+
+    if deletions is not None:
+        try:
+            to_delete = deletions[tournament_id]
+
+        except (KeyError, TypeError):
+            to_delete = None
+
+
     errors = {}
     error_counts = {}
     error_counts['duplicates'] = 0
     error_counts['errors'] = 0
     df_clean_list = []
 
-    for df in df_list:
+    for df, game_id in zip(df_list, games_list):
+        print(game_id)
+
+        if to_delete is not None:
+            try:
+                df.drop(to_delete[game_id], inplace=True)
+                print(to_delete[game_id])
+            except KeyError:
+                pass
+
         df = transform_df(df)
         copy_df, error, error_count = calculate_lineup(df)
         g_id = df.game_id.unique()[0]
@@ -557,7 +576,7 @@ tournaments = pd.read_hdf('hb_db.h5', 'tournaments')
 game_events = pd.read_hdf('hb_db.h5', 'game_events')
 games = pd.read_hdf('hb_db.h5', 'games')
 
-print('HDF File initialized')
+print('File initialized')
 
 games['tournament_id'] = games.apply(
     lambda row: get_tournament(
@@ -569,3 +588,7 @@ games['tournament_id'] = games.apply(
 
 pd.set_option('display.max_rows', None)
 pd.set_option('display.expand_frame_repr', False)
+
+#Deletions
+deletions = {}
+deletions[26] = {1424:[166, 236, 261, 262, 263, 265, 266, 291, 293, 294, 319]}
